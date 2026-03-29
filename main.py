@@ -127,7 +127,7 @@ async def handle_start(update: Update, context: ContextTypes.DEFAULT_TYPE):
         GROUP_ID = chat.id
         print(f"[INFO] Group ID registrado: {GROUP_ID}")
         await update.message.reply_text(
-            f"🟢 Fazza AI Team ativo.\n"
+            f"[OK] Fazza AI Team ativo.\n"
             f"Group ID: `{GROUP_ID}`\n\n"
             f"Envie qualquer mensagem e o time responde.",
             parse_mode="Markdown"
@@ -138,7 +138,7 @@ async def handle_ping(update: Update, context: ContextTypes.DEFAULT_TYPE):
     bots_online = len(send_bots)
     msgs = len(history.get())
     await update.message.reply_text(
-        f"🏓 Pong!\n"
+        f"Pong!\n"
         f"Bots online: {bots_online}/5\n"
         f"Mensagens no contexto: {msgs}"
     )
@@ -146,8 +146,8 @@ async def handle_ping(update: Update, context: ContextTypes.DEFAULT_TYPE):
 
 async def handle_reset(update: Update, context: ContextTypes.DEFAULT_TYPE):
     history.messages.clear()
-    await update.message.reply_text("🔄 Contexto limpo. Começando do zero.")
-    print("[INFO] Histórico limpo por /reset")
+    await update.message.reply_text("Contexto limpo. Comecando do zero.")
+    print("[INFO] Historico limpo por /reset")
 
 
 def split_message(text: str, max_length: int = 4000) -> list:
@@ -174,14 +174,14 @@ def split_message(text: str, max_length: int = 4000) -> list:
 
 async def main():
     print("=" * 50)
-    print("FAZZA AI TEAM — Iniciando")
+    print("FAZZA AI TEAM - Iniciando")
     print("=" * 50)
 
     # Cria Application para cada bot
     apps = {}
     for name, token in BOT_TOKENS.items():
         if not token:
-            print(f"[WARN] Token do bot {name} não configurado")
+            print(f"[WARN] Token do bot {name} nao configurado")
             continue
         app = Application.builder().token(token).build()
         apps[name] = app
@@ -196,7 +196,7 @@ async def main():
     # Adiciona handlers apenas no bot do CEO (listener principal)
     ceo_app = apps.get("ceo")
     if not ceo_app:
-        print("[ERRO] Bot CEO não configurado — impossível continuar")
+        print("[ERRO] Bot CEO nao configurado - impossivel continuar")
         return
 
     ceo_app.add_handler(MessageHandler(
@@ -218,7 +218,7 @@ async def main():
     )
 
     print(f"[INFO] Group ID: {GROUP_ID}")
-    print("🟢 Fazza AI Team rodando — aguardando mensagens")
+    print("[ONLINE] Fazza AI Team rodando - aguardando mensagens")
 
     # Mantém rodando indefinidamente
     import signal
@@ -227,7 +227,7 @@ async def main():
 
     def handle_signal(signum, frame):
         nonlocal stop
-        print(f"[INFO] Sinal {signum} recebido — desligando...")
+        print(f"[INFO] Sinal {signum} recebido - desligando...")
         stop = True
 
     signal.signal(signal.SIGINT, handle_signal)
