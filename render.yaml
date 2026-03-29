@@ -1,0 +1,23 @@
+services:
+  - type: worker
+    name: fazza-agents
+    runtime: python
+    buildCommand: pip install -r requirements.txt
+    startCommand: python main.py
+    envVars:
+      - key: GEMINI_API_KEY
+        sync: false
+      - key: TELEGRAM_GROUP_ID
+        sync: false
+      - key: CEO_BOT_TOKEN
+        sync: false
+      - key: DEV_BOT_TOKEN
+        sync: false
+      - key: LIDER_BOT_TOKEN
+        sync: false
+      - key: DESIGNER_BOT_TOKEN
+        sync: false
+      - key: FINANCEIRO_BOT_TOKEN
+        sync: false
+      - key: PYTHON_VERSION
+        value: "3.11.11"

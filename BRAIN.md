@@ -7,10 +7,9 @@
 ## STATUS ATUAL
 
 - **Backend**: FUNCIONAL — Telegram recebe mensagens, orquestrador roteia, bots enviam
-- **Problema bloqueante**: Gemini API key estourou cota free (limit: 0)
-- **Decisao**: Migrar para OpenRouter (ainda precisa da API key)
-- **Rodando**: Localmente na maquina do Vinicius (Windows 11)
-- **Fly.io**: App criado (`fazza-agents`, regiao GRU) mas conta trial mata apos 5min — precisa cartao de credito ou migrar host
+- **Gemini API**: Nova key ativa (AIzaSyAt9v8fBpmW6RkUsSl9kHvjSPC9bWLmkiA)
+- **Hosting**: Migrando para Render (worker type, sem limite de tempo)
+- **Fly.io**: Descartado (conta trial mata apos 5min sem cartao)
 
 ---
 
@@ -183,8 +182,7 @@ Analitico sem vies emocional. Formato: Custo → Receita → ROI → Recomendaca
 ## VARIAVEIS DE AMBIENTE (.env)
 
 ```
-GEMINI_API_KEY=AIzaSyAFXqH_tKOvPQZ2hxKFWJ5XjDFKjLcCdPM   # ESTOUROU COTA
-OPENROUTER_API_KEY=                                         # PENDENTE
+GEMINI_API_KEY=AIzaSyAt9v8fBpmW6RkUsSl9kHvjSPC9bWLmkiA   # NOVA KEY ATIVA
 TELEGRAM_GROUP_ID=-5048431990
 CEO_BOT_TOKEN=8739880872:AAFnttMx4qgx4cvdhkCODjK_QrQb4JTamj8
 DEV_BOT_TOKEN=8765053219:AAEcmxtQwREzJb0p8OkXNdPjeO67OueeIq4

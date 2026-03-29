@@ -75,7 +75,7 @@ async def handle_message(update: Update, context: ContextTypes.DEFAULT_TYPE):
         chosen = await orchestrator.route(text, history.get())
         agent_names = [a.strip() for a in chosen.split(",")]
 
-        print(f"[ROTEAMENTO] {text[:60]} → {agent_names}")
+        print(f"[ROTEAMENTO] {text[:60]} -> {agent_names}")
 
         for agent_name in agent_names:
             if agent_name not in agents:
