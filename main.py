@@ -74,14 +74,14 @@ agents = {
 }
 
 TOKENS = {
-    "ceo": os.getenv("CEO_BOT_TOKEN"),
-    "dev": os.getenv("DEV_BOT_TOKEN"),
-    "lider": os.getenv("LIDER_BOT_TOKEN"),
-    "designer": os.getenv("DESIGNER_BOT_TOKEN"),
-    "financeiro": os.getenv("FINANCEIRO_BOT_TOKEN"),
+    "ceo": os.getenv("CEO_BOT_TOKEN", "").strip(),
+    "dev": os.getenv("DEV_BOT_TOKEN", "").strip(),
+    "lider": os.getenv("LIDER_BOT_TOKEN", "").strip(),
+    "designer": os.getenv("DESIGNER_BOT_TOKEN", "").strip(),
+    "financeiro": os.getenv("FINANCEIRO_BOT_TOKEN", "").strip(),
 }
 
-GROUP_ID = int(os.getenv("TELEGRAM_GROUP_ID", "0"))
+GROUP_ID = int(os.getenv("TELEGRAM_GROUP_ID", "0").strip())
 
 bot_apps = {
     name: Application.builder().token(token).build()
