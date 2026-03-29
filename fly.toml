@@ -1,0 +1,11 @@
+app = "fazza-agents"
+primary_region = "gru"
+
+[build]
+
+[env]
+  PORT = "8080"
+
+[[services]]
+  internal_port = 8080
+  protocol = "tcp"
