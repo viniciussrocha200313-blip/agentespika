@@ -207,7 +207,10 @@ async def main():
     ceo_app.add_handler(CommandHandler("ping", handle_ping))
     ceo_app.add_handler(CommandHandler("reset", handle_reset))
 
-    # Inicia polling apenas do bot CEO
+    # Limpa webhook anterior e inicia polling
+    await ceo_app.bot.delete_webhook(drop_pending_updates=True)
+    print("[INFO] Webhook limpo")
+
     await ceo_app.start()
     await ceo_app.updater.start_polling(
         drop_pending_updates=True,
@@ -217,33 +220,32 @@ async def main():
     print(f"[INFO] Group ID: {GROUP_ID}")
     print("🟢 Fazza AI Team rodando — aguardando mensagens")
 
-    # Mantém rodando com tratamento de sinal
-    stop_event = asyncio.Event()
-
+    # Mantém rodando indefinidamente
     import signal
 
-    def signal_handler():
-        print("[INFO] Sinal de parada recebido")
-        stop_event.set()
+    stop = False
 
-    loop = asyncio.get_running_loop()
-    for sig in (signal.SIGINT, signal.SIGTERM):
-        try:
-            loop.add_signal_handler(sig, signal_handler)
-        except NotImplementedError:
-            # Windows não suporta add_signal_handler
-            pass
+    def handle_signal(signum, frame):
+        nonlocal stop
+        print(f"[INFO] Sinal {signum} recebido — desligando...")
+        stop = True
 
-    print("[INFO] Aguardando mensagens... (CTRL+C para parar)")
-    await stop_event.wait()
+    signal.signal(signal.SIGINT, handle_signal)
+    signal.signal(signal.SIGTERM, handle_signal)
+
+    while not stop:
+        await asyncio.sleep(5)
 
     print("[INFO] Desligando bots...")
-    await ceo_app.updater.stop()
-    await ceo_app.stop()
-    await ceo_app.shutdown()
-    for name, app in apps.items():
-        if name != "ceo":
-            await app.shutdown()
+    try:
+        await ceo_app.updater.stop()
+        await ceo_app.stop()
+        await ceo_app.shutdown()
+        for name, app in apps.items():
+            if name != "ceo":
+                await app.shutdown()
+    except Exception as e:
+        print(f"[WARN] Erro ao desligar: {e}")
     print("[INFO] Todos os bots desligados")
 
 
