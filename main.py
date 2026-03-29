@@ -1,9 +1,53 @@
 import asyncio
 import os
 import logging
+import sys
 from dotenv import load_dotenv
 
 load_dotenv()
+
+# ===== VALIDACAO DE TOKENS =====
+print("=" * 50)
+print("VALIDANDO VARIAVEIS DE AMBIENTE")
+print("=" * 50)
+
+_token_names = {
+    "CEO": "CEO_BOT_TOKEN",
+    "DEV": "DEV_BOT_TOKEN",
+    "LIDER": "LIDER_BOT_TOKEN",
+    "DESIGNER": "DESIGNER_BOT_TOKEN",
+    "FINANCEIRO": "FINANCEIRO_BOT_TOKEN",
+}
+
+_all_ok = True
+for label, env_name in _token_names.items():
+    token = os.getenv(env_name, "").strip()
+    if not token:
+        print(f"[ERRO] Token {label} ({env_name}) NAO encontrado!")
+        _all_ok = False
+    elif ":" not in token:
+        print(f"[ERRO] Token {label} parece invalido: {token[:20]}...")
+        _all_ok = False
+    else:
+        bot_id = token.split(":")[0]
+        print(f"[OK] Token {label} carregado: {bot_id}:***")
+
+_gemini = os.getenv("GEMINI_API_KEY", "").strip()
+if _gemini:
+    print(f"[OK] GEMINI_API_KEY carregada: {_gemini[:10]}...")
+else:
+    print("[ERRO] GEMINI_API_KEY nao encontrada!")
+    _all_ok = False
+
+_gid = os.getenv("TELEGRAM_GROUP_ID", "").strip()
+print(f"[OK] GROUP_ID: {_gid}" if _gid else "[ERRO] GROUP_ID nao configurado!")
+
+if not _all_ok:
+    print("[FATAL] Variaveis de ambiente com erro. Abortando.")
+    sys.exit(1)
+
+print("=" * 50)
+# ===== FIM VALIDACAO =====
 
 from telegram import Update
 from telegram.ext import Application, MessageHandler, filters, ContextTypes
