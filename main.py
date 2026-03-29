@@ -1,5 +1,6 @@
 import asyncio
 import os
+from aiohttp import web
 from dotenv import load_dotenv
 
 load_dotenv()
@@ -220,6 +221,23 @@ async def main():
     print(f"[INFO] Group ID: {GROUP_ID}")
     print("[ONLINE] Fazza AI Team rodando - aguardando mensagens")
 
+    # Health check HTTP server (Render free tier precisa de porta aberta)
+    async def health_handler(request):
+        bots_online = len(send_bots)
+        msgs = len(history.get())
+        return web.Response(text=f"OK - {bots_online} bots, {msgs} msgs")
+
+    http_app = web.Application()
+    http_app.router.add_get("/", health_handler)
+    http_app.router.add_get("/health", health_handler)
+
+    port = int(os.getenv("PORT", "10000"))
+    runner = web.AppRunner(http_app)
+    await runner.setup()
+    site = web.TCPSite(runner, "0.0.0.0", port)
+    await site.start()
+    print(f"[INFO] Health check HTTP rodando na porta {port}")
+
     # Mantém rodando indefinidamente
     import signal
 
@@ -238,6 +256,7 @@ async def main():
 
     print("[INFO] Desligando bots...")
     try:
+        await runner.cleanup()
         await ceo_app.updater.stop()
         await ceo_app.stop()
         await ceo_app.shutdown()
