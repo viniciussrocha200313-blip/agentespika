@@ -9,3 +9,5 @@ primary_region = "gru"
 [[vm]]
   size = "shared-cpu-1x"
   memory = "256mb"
+  auto_stop_machines = "off"
+  auto_start_machines = false

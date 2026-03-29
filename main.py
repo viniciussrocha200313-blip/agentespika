@@ -217,22 +217,38 @@ async def main():
     print(f"[INFO] Group ID: {GROUP_ID}")
     print("🟢 Fazza AI Team rodando — aguardando mensagens")
 
-    # Mantém rodando
-    try:
-        while True:
-            await asyncio.sleep(1)
-    except (KeyboardInterrupt, SystemExit):
-        print("[INFO] Desligando...")
-    finally:
-        await ceo_app.updater.stop()
-        await ceo_app.stop()
-        await ceo_app.shutdown()
-        # Shutdown dos outros bots
-        for name, app in apps.items():
-            if name != "ceo":
-                await app.shutdown()
-        print("[INFO] Todos os bots desligados")
+    # Mantém rodando com tratamento de sinal
+    stop_event = asyncio.Event()
+
+    import signal
+
+    def signal_handler():
+        print("[INFO] Sinal de parada recebido")
+        stop_event.set()
+
+    loop = asyncio.get_running_loop()
+    for sig in (signal.SIGINT, signal.SIGTERM):
+        try:
+            loop.add_signal_handler(sig, signal_handler)
+        except NotImplementedError:
+            # Windows não suporta add_signal_handler
+            pass
+
+    print("[INFO] Aguardando mensagens... (CTRL+C para parar)")
+    await stop_event.wait()
+
+    print("[INFO] Desligando bots...")
+    await ceo_app.updater.stop()
+    await ceo_app.stop()
+    await ceo_app.shutdown()
+    for name, app in apps.items():
+        if name != "ceo":
+            await app.shutdown()
+    print("[INFO] Todos os bots desligados")
 
 
 if __name__ == "__main__":
-    asyncio.run(main())
+    try:
+        asyncio.run(main())
+    except (KeyboardInterrupt, SystemExit):
+        print("[INFO] Desligado")
