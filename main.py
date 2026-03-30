@@ -182,28 +182,35 @@ async def handle_message(update: Update, context):
             text=resposta
         )
 
-# Adiciona handler em todos os apps
-for app_ptb in apps.values():
-    app_ptb.add_handler(MessageHandler(
-        filters.TEXT & ~filters.COMMAND,
-        handle_message
-    ))
+# Apenas o bot CEO recebe mensagens — ele e o roteador
+# Os demais bots so existem para enviar com sua propria identidade
+apps["ceo"].add_handler(MessageHandler(
+    filters.TEXT & ~filters.COMMAND,
+    handle_message
+))
 
 @asynccontextmanager
 async def lifespan(_: FastAPI):
-    # Inicializa e registra webhook de cada bot
     for nome, app_ptb in apps.items():
         await app_ptb.initialize()
         await app_ptb.start()
-        webhook_url = f"{RENDER_URL}/webhook/{nome}"
-        await app_ptb.bot.set_webhook(
-            url=webhook_url,
-            drop_pending_updates=True,
-            allowed_updates=["message"]
-        )
-        info = await app_ptb.bot.get_webhook_info()
-        logger.info(f"[WEBHOOK] {nome}: {info.url} | pending: {info.pending_update_count}")
-        logger.info(f"[SISTEMA] Bot {nome} online")
+
+    # So o CEO tem webhook ativo para receber mensagens
+    webhook_url = f"{RENDER_URL}/webhook/ceo"
+    await apps["ceo"].bot.set_webhook(
+        url=webhook_url,
+        drop_pending_updates=True,
+        allowed_updates=["message"]
+    )
+    info = await apps["ceo"].bot.get_webhook_info()
+    logger.info(f"[WEBHOOK] ceo (roteador): {info.url} | pending: {info.pending_update_count}")
+
+    # Os outros bots removem qualquer webhook antigo
+    for nome in ["dev", "lider", "designer", "financeiro"]:
+        await apps[nome].bot.delete_webhook(drop_pending_updates=True)
+        logger.info(f"[SISTEMA] Bot {nome} online (apenas envio)")
+
+    logger.info("[SISTEMA] Todos os bots online. CEO recebe, agentes respondem.")
 
     logger.info("[SISTEMA] Todos os bots online. Aguardando mensagens...")
     yield
@@ -221,22 +228,20 @@ async def health():
 
 @fastapi_app.get("/webhook/info")
 async def webhook_info():
-    infos = {}
-    for nome, app_ptb in apps.items():
-        info = await app_ptb.bot.get_webhook_info()
-        infos[nome] = {
+    info = await apps["ceo"].bot.get_webhook_info()
+    return {
+        "ceo": {
             "url": info.url,
             "pending": info.pending_update_count,
             "last_error": info.last_error_message
-        }
-    return infos
+        },
+        "outros": "dev/lider/designer/financeiro so enviam, sem webhook"
+    }
 
-# Endpoint webhook para cada bot
-@fastapi_app.post("/webhook/{bot_name}")
-async def webhook(bot_name: str, request: Request):
-    if bot_name not in apps:
-        return Response(status_code=404)
+# So o CEO recebe atualizacoes do Telegram
+@fastapi_app.post("/webhook/ceo")
+async def webhook(request: Request):
     data = await request.json()
-    update = Update.de_json(data, apps[bot_name].bot)
-    await apps[bot_name].process_update(update)
+    update = Update.de_json(data, apps["ceo"].bot)
+    await apps["ceo"].process_update(update)
     return Response(status_code=HTTPStatus.OK)
