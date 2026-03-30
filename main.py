@@ -30,11 +30,11 @@ GEMINI_KEY = os.getenv("GEMINI_API_KEY", "").strip()
 # Valida tudo no startup
 for name, token in TOKENS.items():
     if not token or ":" not in token:
-        raise ValueError(f"Token {name} inválido: '{token}'")
+        raise ValueError(f"Token {name} invalido: '{token}'")
     logger.info(f"[OK] Token {name}: {token.split(':')[0]}:***")
 
 if not RENDER_URL:
-    raise ValueError("RENDER_EXTERNAL_URL não configurado")
+    raise ValueError("RENDER_EXTERNAL_URL nao configurado")
 
 logger.info(f"[OK] RENDER_URL: {RENDER_URL}")
 logger.info(f"[OK] GROUP_ID: {GROUP_ID}")
@@ -43,30 +43,30 @@ logger.info(f"[OK] GROUP_ID: {GROUP_ID}")
 genai.configure(api_key=GEMINI_KEY)
 gemini = genai.GenerativeModel("gemini-2.0-flash")
 
-# Histórico em memória
+# Historico em memoria
 historico = []
 
 # System prompts dos agentes
 PROMPTS = {
-    "ceo": """Você é Viktor, CEO do time de IA do Vinicius Souza.
-Estrategista, direto, pensa grande. Fala em português.
-Nunca começa com "Claro!" ou validação vazia. Máximo 3 parágrafos.
-Termina sempre com uma pergunta ou provocação.""",
+    "ceo": """Voce e Viktor, CEO do time de IA do Vinicius Souza.
+Estrategista, direto, pensa grande. Fala em portugues.
+Nunca comeca com "Claro!" ou validacao vazia. Maximo 3 paragrafos.
+Termina sempre com uma pergunta ou provocacao.""",
 
-    "dev": """Você é Kai, dev sênior do time do Vinicius Souza.
+    "dev": """Voce e Kai, dev senior do time do Vinicius Souza.
 Stack: Python, FastAPI, Node.js, Supabase, Claude API, Meta Graph API.
-Direto ao ponto. Se a pergunta é técnica, inclui código real. Fala em português.""",
+Direto ao ponto. Se a pergunta e tecnica, inclui codigo real. Fala em portugues.""",
 
-    "lider": """Você é Alex, líder de projetos do time do Vinicius Souza.
-Transforma ideias em tarefas concretas. Termina sempre com "Próximo passo:".
-Fala em português.""",
+    "lider": """Voce e Alex, lider de projetos do time do Vinicius Souza.
+Transforma ideias em tarefas concretas. Termina sempre com "Proximo passo:".
+Fala em portugues.""",
 
-    "designer": """Você é Luna, designer do time do Vinicius Souza.
-UI/UX, copy, campanhas. Criativa mas com fundamento. Fala em português.""",
+    "designer": """Voce e Luna, designer do time do Vinicius Souza.
+UI/UX, copy, campanhas. Criativa mas com fundamento. Fala em portugues.""",
 
-    "financeiro": """Você é Max, financeiro do time do Vinicius Souza.
-Números, ROI, viabilidade. Formato: Custo → Receita → ROI → Recomendação.
-Fala em português.""",
+    "financeiro": """Voce e Max, financeiro do time do Vinicius Souza.
+Numeros, ROI, viabilidade. Formato: Custo -> Receita -> ROI -> Recomendacao.
+Fala em portugues.""",
 }
 
 # Cria um Application PTB para cada bot (sem updater = modo webhook)
@@ -74,18 +74,17 @@ apps: dict[str, Application] = {}
 for nome, token in TOKENS.items():
     app_ptb = (
         Application.builder()
-        .updater(None)  # CRÍTICO: desabilita polling
+        .updater(None)  # CRITICO: desabilita polling
         .token(token)
         .build()
     )
     apps[nome] = app_ptb
 
-
 async def orquestrador(texto: str) -> str:
     """Decide qual agente responde"""
     prompt = f"""Analise a mensagem e retorne APENAS o nome do agente.
-Regras: código/técnico→dev | estratégia/negócio→ceo | tarefas/plano→lider
-copy/design→designer | dinheiro/ROI→financeiro | dúvida geral→ceo
+Regras: codigo/tecnico->dev | estrategia/negocio->ceo | tarefas/plano->lider
+copy/design->designer | dinheiro/ROI->financeiro | duvida geral->ceo
 
 Mensagem: {texto}
 Responda apenas com: ceo, dev, lider, designer ou financeiro"""
@@ -99,14 +98,13 @@ Responda apenas com: ceo, dev, lider, designer ou financeiro"""
         logger.error(f"[ORQUESTRADOR] Erro: {e}")
         return "ceo"
 
-
 async def responder(agente: str, mensagem: str) -> str:
     """Chama Gemini com o system prompt do agente"""
     ctx = "\n".join([f"{m['role']} ({m['name']}): {m['text']}"
                      for m in historico[-8:]])
     prompt = f"""{PROMPTS[agente]}
 
-Histórico:
+Historico:
 {ctx}
 
 Mensagem atual: {mensagem}
@@ -118,9 +116,8 @@ Responda agora:"""
         logger.error(f"[{agente.upper()}] Erro: {e}")
         return f"Erro ao processar: {e}"
 
-
 async def handle_message(update: Update, context):
-    """Handler único que todos os bots usam"""
+    """Handler unico que todos os bots usam"""
     if not update.message or not update.message.text:
         return
     if update.message.chat_id != GROUP_ID:
@@ -137,7 +134,7 @@ async def handle_message(update: Update, context):
         historico.pop(0)
 
     agente = await orquestrador(texto)
-    logger.info(f"[ORQUESTRADOR] → {agente}")
+    logger.info(f"[ORQUESTRADOR] -> {agente}")
 
     resposta = await responder(agente, texto)
     historico.append({"role": "assistant", "name": agente, "text": resposta})
@@ -155,14 +152,12 @@ async def handle_message(update: Update, context):
             text=resposta
         )
 
-
 # Adiciona handler em todos os apps
 for app_ptb in apps.values():
     app_ptb.add_handler(MessageHandler(
         filters.TEXT & ~filters.COMMAND,
         handle_message
     ))
-
 
 @asynccontextmanager
 async def lifespan(_: FastAPI):
@@ -178,7 +173,7 @@ async def lifespan(_: FastAPI):
         )
         info = await app_ptb.bot.get_webhook_info()
         logger.info(f"[WEBHOOK] {nome}: {info.url} | pending: {info.pending_update_count}")
-        logger.info(f"[SISTEMA] Bot {nome} online ✅")
+        logger.info(f"[SISTEMA] Bot {nome} online")
 
     logger.info("[SISTEMA] Todos os bots online. Aguardando mensagens...")
     yield
@@ -188,14 +183,11 @@ async def lifespan(_: FastAPI):
         await app_ptb.stop()
         await app_ptb.shutdown()
 
-
 fastapi_app = FastAPI(lifespan=lifespan)
-
 
 @fastapi_app.get("/")
 async def health():
     return {"status": "ok", "bots": list(apps.keys())}
-
 
 @fastapi_app.get("/webhook/info")
 async def webhook_info():
@@ -208,7 +200,6 @@ async def webhook_info():
             "last_error": info.last_error_message
         }
     return infos
-
 
 # Endpoint webhook para cada bot
 @fastapi_app.post("/webhook/{bot_name}")
