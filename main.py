@@ -1,4 +1,5 @@
 import os
+import asyncio
 import logging
 from contextlib import asynccontextmanager
 from http import HTTPStatus
@@ -8,6 +9,7 @@ from telegram import Update
 from telegram.ext import Application, MessageHandler, filters
 
 import google.generativeai as genai
+from groq import Groq
 from dotenv import load_dotenv
 
 load_dotenv()
@@ -26,8 +28,9 @@ TOKENS = {
 RENDER_URL = os.getenv("RENDER_EXTERNAL_URL", "").strip()
 GROUP_ID = int(os.getenv("TELEGRAM_GROUP_ID", "0"))
 GEMINI_KEY = os.getenv("GEMINI_API_KEY", "").strip()
+GROQ_KEY = os.getenv("GROQ_API_KEY", "").strip()
 
-# Valida tudo no startup
+# Valida tokens no startup
 for name, token in TOKENS.items():
     if not token or ":" not in token:
         raise ValueError(f"Token {name} invalido: '{token}'")
@@ -38,10 +41,15 @@ if not RENDER_URL:
 
 logger.info(f"[OK] RENDER_URL: {RENDER_URL}")
 logger.info(f"[OK] GROUP_ID: {GROUP_ID}")
+logger.info(f"[OK] Groq: {'configurado' if GROQ_KEY else 'ausente'}")
+logger.info(f"[OK] Gemini: {'configurado' if GEMINI_KEY else 'ausente'}")
 
-# Configura Gemini
+# Configura Gemini (respostas dos agentes)
 genai.configure(api_key=GEMINI_KEY)
 gemini = genai.GenerativeModel("gemini-2.0-flash")
+
+# Configura Groq (orquestrador - rapido e sem cota restritiva)
+groq_client = Groq(api_key=GROQ_KEY)
 
 # Historico em memoria
 historico = []
@@ -80,24 +88,8 @@ for nome, token in TOKENS.items():
     )
     apps[nome] = app_ptb
 
-async def gemini_com_retry(prompt: str, tentativas: int = 3) -> str:
-    """Chama Gemini com retry automatico em caso de 429"""
-    import asyncio
-    for i in range(tentativas):
-        try:
-            r = gemini.generate_content(prompt)
-            return r.text.strip()
-        except Exception as e:
-            if "429" in str(e) and i < tentativas - 1:
-                espera = 30 * (i + 1)
-                logger.warning(f"[GEMINI] Quota excedida, tentando novamente em {espera}s...")
-                await asyncio.sleep(espera)
-            else:
-                raise e
-    return ""
-
 async def orquestrador(texto: str) -> str:
-    """Decide qual agente responde"""
+    """Usa Groq (llama-3.3-70b) para decidir qual agente responde - rapido e sem cota restritiva"""
     prompt = f"""Analise a mensagem e retorne APENAS o nome do agente.
 Regras: codigo/tecnico->dev | estrategia/negocio->ceo | tarefas/plano->lider
 copy/design->designer | dinheiro/ROI->financeiro | duvida geral->ceo
@@ -105,17 +97,22 @@ copy/design->designer | dinheiro/ROI->financeiro | duvida geral->ceo
 Mensagem: {texto}
 Responda apenas com: ceo, dev, lider, designer ou financeiro"""
     try:
-        agente = await gemini_com_retry(prompt)
-        agente = agente.lower()
+        r = groq_client.chat.completions.create(
+            model="llama-3.3-70b-versatile",
+            messages=[{"role": "user", "content": prompt}],
+            max_tokens=10,
+            temperature=0
+        )
+        agente = r.choices[0].message.content.strip().lower()
         if agente not in PROMPTS:
             return "ceo"
         return agente
     except Exception as e:
-        logger.error(f"[ORQUESTRADOR] Erro: {e}")
+        logger.error(f"[ORQUESTRADOR] Erro Groq: {e}")
         return "ceo"
 
 async def responder(agente: str, mensagem: str) -> str:
-    """Chama Gemini com o system prompt do agente"""
+    """Usa Gemini para gerar a resposta do agente, com retry em caso de 429"""
     ctx = "\n".join([f"{m['role']} ({m['name']}): {m['text']}"
                      for m in historico[-8:]])
     prompt = f"""{PROMPTS[agente]}
@@ -125,13 +122,18 @@ Historico:
 
 Mensagem atual: {mensagem}
 Responda agora:"""
-    try:
-        return await gemini_com_retry(prompt)
-    except Exception as e:
-        logger.error(f"[{agente.upper()}] Erro: {e}")
-        if "429" in str(e):
-            return "Quota da API excedida no momento. Tente novamente em alguns minutos."
-        return f"Erro ao processar: {e}"
+    for tentativa in range(3):
+        try:
+            r = gemini.generate_content(prompt)
+            return r.text.strip()
+        except Exception as e:
+            if "429" in str(e) and tentativa < 2:
+                logger.warning(f"[{agente}] 429 - aguardando 30s (tentativa {tentativa + 1}/3)...")
+                await asyncio.sleep(30)
+            else:
+                logger.error(f"[{agente}] Erro: {e}")
+                return "Estou processando muitas mensagens agora. Tenta em instantes!"
+    return "Servico temporariamente indisponivel."
 
 async def handle_message(update: Update, context):
     """Handler unico que todos os bots usam"""
@@ -204,7 +206,7 @@ fastapi_app = FastAPI(lifespan=lifespan)
 
 @fastapi_app.get("/")
 async def health():
-    return {"status": "ok", "bots": list(apps.keys())}
+    return {"status": "ok", "bots": list(apps.keys()), "orquestrador": "groq", "agentes": "gemini"}
 
 @fastapi_app.get("/webhook/info")
 async def webhook_info():
