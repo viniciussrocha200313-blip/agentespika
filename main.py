@@ -112,7 +112,7 @@ Responda apenas com: ceo, dev, lider, designer ou financeiro"""
         return "ceo"
 
 async def responder(agente: str, mensagem: str) -> str:
-    """Usa Gemini para gerar a resposta do agente, com retry em caso de 429"""
+    """Usa Gemini para gerar a resposta. Fallback automatico para Groq se Gemini falhar."""
     ctx = "\n".join([f"{m['role']} ({m['name']}): {m['text']}"
                      for m in historico[-8:]])
     prompt = f"""{PROMPTS[agente]}
@@ -122,18 +122,29 @@ Historico:
 
 Mensagem atual: {mensagem}
 Responda agora:"""
-    for tentativa in range(3):
-        try:
-            r = gemini.generate_content(prompt)
-            return r.text.strip()
-        except Exception as e:
-            if "429" in str(e) and tentativa < 2:
-                logger.warning(f"[{agente}] 429 - aguardando 30s (tentativa {tentativa + 1}/3)...")
-                await asyncio.sleep(30)
-            else:
-                logger.error(f"[{agente}] Erro: {e}")
-                return "Estou processando muitas mensagens agora. Tenta em instantes!"
-    return "Servico temporariamente indisponivel."
+    # Tenta Gemini
+    try:
+        r = gemini.generate_content(prompt)
+        logger.info(f"[{agente}] Respondeu via Gemini")
+        return r.text.strip()
+    except Exception as e:
+        logger.warning(f"[{agente}] Gemini falhou ({e}), ativando fallback Groq...")
+    # Fallback: Groq
+    try:
+        r = groq_client.chat.completions.create(
+            model="llama-3.3-70b-versatile",
+            messages=[
+                {"role": "system", "content": PROMPTS[agente]},
+                {"role": "user", "content": mensagem}
+            ],
+            max_tokens=512,
+            temperature=0.7
+        )
+        logger.info(f"[{agente}] Respondeu via Groq (fallback)")
+        return r.choices[0].message.content.strip()
+    except Exception as e2:
+        logger.error(f"[{agente}] Groq tambem falhou: {e2}")
+        return "Sistema temporariamente sobrecarregado. Tenta em instantes!"
 
 async def handle_message(update: Update, context):
     """Handler unico que todos os bots usam"""
