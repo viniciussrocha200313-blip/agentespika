@@ -80,6 +80,22 @@ for nome, token in TOKENS.items():
     )
     apps[nome] = app_ptb
 
+async def gemini_com_retry(prompt: str, tentativas: int = 3) -> str:
+    """Chama Gemini com retry automatico em caso de 429"""
+    import asyncio
+    for i in range(tentativas):
+        try:
+            r = gemini.generate_content(prompt)
+            return r.text.strip()
+        except Exception as e:
+            if "429" in str(e) and i < tentativas - 1:
+                espera = 30 * (i + 1)
+                logger.warning(f"[GEMINI] Quota excedida, tentando novamente em {espera}s...")
+                await asyncio.sleep(espera)
+            else:
+                raise e
+    return ""
+
 async def orquestrador(texto: str) -> str:
     """Decide qual agente responde"""
     prompt = f"""Analise a mensagem e retorne APENAS o nome do agente.
@@ -89,8 +105,8 @@ copy/design->designer | dinheiro/ROI->financeiro | duvida geral->ceo
 Mensagem: {texto}
 Responda apenas com: ceo, dev, lider, designer ou financeiro"""
     try:
-        r = gemini.generate_content(prompt)
-        agente = r.text.strip().lower()
+        agente = await gemini_com_retry(prompt)
+        agente = agente.lower()
         if agente not in PROMPTS:
             return "ceo"
         return agente
@@ -110,10 +126,11 @@ Historico:
 Mensagem atual: {mensagem}
 Responda agora:"""
     try:
-        r = gemini.generate_content(prompt)
-        return r.text.strip()
+        return await gemini_com_retry(prompt)
     except Exception as e:
         logger.error(f"[{agente.upper()}] Erro: {e}")
+        if "429" in str(e):
+            return "Quota da API excedida no momento. Tente novamente em alguns minutos."
         return f"Erro ao processar: {e}"
 
 async def handle_message(update: Update, context):
